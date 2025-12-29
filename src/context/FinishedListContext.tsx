@@ -1,63 +1,111 @@
-import { createContext, useState, useContext, useEffect, type ReactNode } from "react";
+import { createContext, useState, useContext, useEffect } from "react";
+import type { ReactNode } from "react";
 import type { Item } from "../types";
 import { arrayMove } from "@dnd-kit/sortable";
-
+import { supabase } from "../supabaseClient";
+import { useAuth } from "./AuthContext";
 
 interface FinishedListContextType {
   finishedList: Item[];
-  addItem: (item: Item) => void;
-  removeItem: (id: string) => void;
+  addItem: (item: Omit<Item, "id">) => Promise<void>;
+  removeItem: (id: string) => Promise<void>;
   reorderItems: (oldIndex: number, newIndex: number, type: Item["type"]) => void;
 }
 
-
 const FinishedListContext = createContext<FinishedListContextType | undefined>(undefined);
 
-const STORAGE_KEY = "finishedList";
-
 export const FinishedListProvider = ({ children }: { children: ReactNode }) => {
-  const [finishedList, setFinishedList] = useState<Item[]>(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        try {
-          return JSON.parse(stored) as Item[];
-        } catch {
-          return [];
-        }
-      }
-    }
-    return [];
-  });
+  const { user } = useAuth(); // <-- NEW: pull user from AuthContext
+  const [finishedList, setFinishedList] = useState<Item[]>([]);
 
+  // Load items depending on auth state
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(finishedList));
-  }, [finishedList]);
+    const load = async () => {
+      if (user) {
+        const { data } = await supabase
+          .from("items")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at");
 
-  const addItem = (item: Item) => {
-    setFinishedList(prev => [...prev, item]);
+        setFinishedList(data || []);
+      } else {
+        setFinishedList(JSON.parse(localStorage.getItem("finishedList") || "[]"));
+      }
+    };
+    load();
+  }, [user]);
+
+  // Merge local storage items when user logs in
+  useEffect(() => {
+    if (!user) return;
+
+    const merge = async () => {
+      const localItems = JSON.parse(localStorage.getItem("finishedList") || "[]");
+
+      for (const item of localItems) {
+        await supabase.from("items").insert({ ...item, user_id: user.id });
+      }
+
+      localStorage.removeItem("finishedList");
+
+      const { data } = await supabase
+        .from("items")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at");
+
+      setFinishedList(data || []);
+    };
+
+    merge();
+  }, [user]);
+
+  const addItem = async (item: Omit<Item, "id">) => {
+    if (user) {
+      const { data } = await supabase
+        .from("items")
+        .insert([{ ...item, user_id: user.id }])
+        .select()
+        .single();
+
+      setFinishedList((prev) => [...prev, data]);
+    } else {
+      const newItem = { ...item, id: crypto.randomUUID() };
+      const updated = [...finishedList, newItem];
+      setFinishedList(updated);
+      localStorage.setItem("finishedList", JSON.stringify(updated));
+    }
   };
 
-const removeItem = (id: string) => {
-    console.log("removeItem called for id:", id);
+  const removeItem = async (id: string) => {
+    if (user) await supabase.from("items").delete().eq("id", id);
 
-  setFinishedList((prev) => {
-    const newList = prev.filter((item) => item.id !== id);
-    localStorage.setItem("finishedList", JSON.stringify(newList));
-    return newList;
-  });
-};
+    const updated = finishedList.filter((i) => i.id !== id);
+    setFinishedList(updated);
 
+    if (!user) localStorage.setItem("finishedList", JSON.stringify(updated));
+  };
 
-const reorderItems = (oldIndex: number, newIndex: number, type: Item["type"]) => {
-  const tabItems = finishedList.filter((i) => i.type === type);
-  const reorderedTab = arrayMove(tabItems, oldIndex, newIndex);
+  const reorderItems = (oldIndex: number, newIndex: number, type: Item["type"]) => {
+    const sameTypeIndexes = finishedList
+      .map((item, i) => ({ item, i }))
+      .filter(({ item }) => item.type === type)
+      .map(({ i }) => i);
 
-  // Merge back with other items
-  const otherItems = finishedList.filter((i) => i.type !== type);
-  setFinishedList([...otherItems, ...reorderedTab]);
-};
+    const from = sameTypeIndexes[oldIndex];
+    const to = sameTypeIndexes[newIndex];
 
+    if (from === undefined || to === undefined) return;
+
+    const newList = arrayMove(finishedList, from, to);
+    setFinishedList(newList);
+
+    if (!user) localStorage.setItem("finishedList", JSON.stringify(newList));
+    else newList.forEach((item) =>
+      supabase.from("items").update({ updated_at: new Date() }).eq("id", item.id)
+    );
+  };
 
   return (
     <FinishedListContext.Provider value={{ finishedList, addItem, removeItem, reorderItems }}>
@@ -67,7 +115,7 @@ const reorderItems = (oldIndex: number, newIndex: number, type: Item["type"]) =>
 };
 
 export const useFinishedList = () => {
-  const context = useContext(FinishedListContext);
-  if (!context) throw new Error("useFinishedList must be used within FinishedListProvider");
-  return context;
+  const ctx = useContext(FinishedListContext);
+  if (!ctx) throw new Error("useFinishedList must be used inside FinishedListProvider");
+  return ctx;
 };

@@ -1,27 +1,57 @@
 import type { Item } from "../types";
 
-const API_URL = "http://localhost:4000"; // backend URL
+const BASE_URL = "http://localhost:5000";
 
-export async function getItems(type: "films" | "games" | "books"): Promise<Item[]> {
-  const res = await fetch(`${API_URL}/${type}`);
+// Fetch all items
+export const getFinishedList = async (): Promise<Item[]> => {
+  const res = await fetch(`${BASE_URL}/items`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch finished list");
+  }
   return res.json();
-}
+};
 
-export async function addToFinishedList(item: Item) {
-  const res = await fetch(`${API_URL}/finishedList`, {
+// Add a new item
+export const addToFinishedList = async (
+  item: Omit<Item, "id">
+): Promise<Item> => {
+  const res = await fetch(`${BASE_URL}/items`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(item),
   });
-  return res.json();
-}
 
-export async function removeFromFinishedList(id: string) {
-  const res = await fetch(`${API_URL}/finishedList/${id}`, { method: "DELETE" });
-  return res.json();
-}
+  if (!res.ok) {
+    throw new Error("Failed to add item");
+  }
 
-export async function getFinishedList(): Promise<Item[]> {
-  const res = await fetch(`${API_URL}/finishedList`);
   return res.json();
-}
+};
+
+// Remove an item
+export const removeFromFinishedList = async (id: string): Promise<void> => {
+  const res = await fetch(`${BASE_URL}/items/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to remove item");
+  }
+};
+
+// Persist full reordered list
+export const reorderFinishedList = async (
+  newList: Item[]
+): Promise<Item[]> => {
+  const res = await fetch(`${BASE_URL}/items/reorder`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ newList }),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to persist reordered list");
+  }
+
+  return res.json();
+};

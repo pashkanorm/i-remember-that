@@ -16,6 +16,11 @@ const Card: React.FC<CardProps> = ({ item }) => {
     transition,
   };
 
+  const handleRemove = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation(); // Prevent triggering drag
+    await removeItem(item.id);
+  };
+
   return (
     <div ref={setNodeRef} style={style} className="card" {...attributes}>
       <div className="card-content" {...listeners}>
@@ -23,10 +28,11 @@ const Card: React.FC<CardProps> = ({ item }) => {
           <h2>{item.title}</h2>
           {item.description && <p>{item.description}</p>}
         </div>
+        {/* Make button ignore drag events */}
         <button
           className="remove-btn"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => removeItem(item.id)}
+          onPointerDown={(e) => e.stopPropagation()} // ensures drag doesn't start on click
+          onClick={handleRemove}
         >
           ×
         </button>

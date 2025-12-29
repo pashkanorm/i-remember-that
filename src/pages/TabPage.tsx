@@ -13,11 +13,10 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
-  arrayMove,
 } from "@dnd-kit/sortable";
 
 interface TabPageProps {
-  type: "films" | "games" | "books";
+  type: "movies" | "games" | "books";
 }
 
 const TabPage: React.FC<TabPageProps> = ({ type }) => {
@@ -25,36 +24,38 @@ const TabPage: React.FC<TabPageProps> = ({ type }) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
 
-  // Sensors for drag detection
   const sensors = useSensors(useSensor(PointerSensor));
 
-  const handleAdd = () => {
-    if (!title) return;
-    const newItem: Item = {
-      id: Date.now().toString(),
-      title,
-      description,
-      type,
-    };
-    addItem(newItem);
-    setTitle("");
-    setDescription("");
-  };
+const handleAdd = async () => {
+  if (!title) return;
+
+  await addItem({
+    title,
+    description,
+    type,
+  });
+
+  setTitle("");
+  setDescription("");
+};
 
   const items = finishedList.filter((item) => item.type === type);
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
+const handleDragEnd = (event: DragEndEvent) => {
+  const { active, over } = event;
+  if (!over || active.id === over.id) return;
 
-    const oldIndex = items.findIndex((i) => i.id === active.id);
-    const newIndex = items.findIndex((i) => i.id === over.id);
-    reorderItems(oldIndex, newIndex, type);
-  };
+  const oldIndex = items.findIndex((i) => i.id === active.id);
+  const newIndex = items.findIndex((i) => i.id === over.id);
+
+  reorderItems(oldIndex, newIndex, type);
+};
+
+
 
   return (
     <div>
-      <h1>{type.toUpperCase()}</h1>
+      <h1><div className="title-name">{type.toUpperCase()}</div></h1>
 
       {/* Input form */}
       <div className="add-form">

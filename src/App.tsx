@@ -7,8 +7,8 @@ function App() {
     <Router>
       <Navbar />
       <Routes>
-        <Route path="/" element={<Navigate to="/films" />} />
-        <Route path="/films" element={<TabPage type="films" />} />
+        <Route path="/" element={<Navigate to="/movies" />} />
+        <Route path="/movies" element={<TabPage type="movies" />} />
         <Route path="/games" element={<TabPage type="games" />} />
         <Route path="/books" element={<TabPage type="books" />} />
       </Routes>
