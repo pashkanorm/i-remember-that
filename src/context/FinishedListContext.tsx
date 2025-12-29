@@ -15,7 +15,7 @@ interface FinishedListContextType {
 const FinishedListContext = createContext<FinishedListContextType | undefined>(undefined);
 
 export const FinishedListProvider = ({ children }: { children: ReactNode }) => {
-  const { user } = useAuth(); // <-- NEW: pull user from AuthContext
+  const { user } = useAuth(); // pull user from AuthContext
   const [finishedList, setFinishedList] = useState<Item[]>([]);
 
   // Load items depending on auth state
@@ -26,9 +26,10 @@ export const FinishedListProvider = ({ children }: { children: ReactNode }) => {
           .from("items")
           .select("*")
           .eq("user_id", user.id)
-          .order("created_at");
+          .order("order", { ascending: true })
+          .order("created_at", { ascending: true });
 
-        setFinishedList(data || []);
+        setFinishedList(data ?? []);
       } else {
         setFinishedList(JSON.parse(localStorage.getItem("finishedList") || "[]"));
       }
@@ -41,21 +42,45 @@ export const FinishedListProvider = ({ children }: { children: ReactNode }) => {
     if (!user) return;
 
     const merge = async () => {
-      const localItems = JSON.parse(localStorage.getItem("finishedList") || "[]");
+      const localItems: Item[] = JSON.parse(localStorage.getItem("finishedList") || "[]");
 
-      for (const item of localItems) {
-        await supabase.from("items").insert({ ...item, user_id: user.id });
+      if (localItems.length === 0) {
+        // No local items to merge, just load from database
+        const { data } = await supabase
+          .from("items")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("order", { ascending: true })
+          .order("created_at", { ascending: true });
+
+        setFinishedList((data as unknown as Item[]) ?? []);
+        return;
       }
 
+      try {
+        // Use upsert to avoid conflicts - if item exists, update it; otherwise insert it
+        const { data } = await supabase.from("items").upsert(
+          localItems.map((item: Item, index: number) => ({ ...item, user_id: user.id, order: index })),
+          { onConflict: "id" }
+        );
+
+        console.log("[FinishedListContext] Merged local items:", ((data as unknown as Item[]) ?? []).length);
+        setFinishedList((data as unknown as Item[]) ?? []);
+      } catch (err) {
+        console.error("[FinishedListContext] Merge error:", err);
+        // Fallback: load from database if merge fails
+        const { data } = await supabase
+          .from("items")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("order", { ascending: true })
+          .order("created_at", { ascending: true });
+
+        setFinishedList((data as unknown as Item[]) ?? []);
+      }
+
+      // Clear local storage after successful merge
       localStorage.removeItem("finishedList");
-
-      const { data } = await supabase
-        .from("items")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at");
-
-      setFinishedList(data || []);
     };
 
     merge();
@@ -101,10 +126,26 @@ export const FinishedListProvider = ({ children }: { children: ReactNode }) => {
     const newList = arrayMove(finishedList, from, to);
     setFinishedList(newList);
 
-    if (!user) localStorage.setItem("finishedList", JSON.stringify(newList));
-    else newList.forEach((item) =>
-      supabase.from("items").update({ updated_at: new Date() }).eq("id", item.id)
-    );
+    if (!user) {
+      localStorage.setItem("finishedList", JSON.stringify(newList));
+    } else {
+      // Persist order to database
+      const updates = newList.map((item, index) => ({
+        id: item.id,
+        order: index,
+      }));
+
+      updates.forEach(async ({ id, order }: { id: string; order: number }) => {
+        try {
+          await supabase
+            .from("items")
+            .update({ order, updated_at: new Date().toISOString() })
+            .eq("id", id);
+        } catch (err: unknown) {
+          console.error("[FinishedListContext] Error updating item order:", err);
+        }
+      });
+    }
   };
 
   return (
