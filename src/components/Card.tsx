@@ -105,6 +105,7 @@ const Card: React.FC<CardProps> = ({ item }) => {
                   autoFocus
                   className="edit-input"
                   value={value}
+                  maxLength={90}
                   onChange={(e) => setValue(e.target.value)}
                   onBlur={() => saveEdit()}
                   onKeyDown={(e) => {

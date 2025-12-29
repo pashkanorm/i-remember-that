@@ -23,6 +23,7 @@ const TabPage: React.FC<TabPageProps> = ({ type }) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const cardsContainerRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -40,6 +41,13 @@ const handleAdd = async () => {
   
   // Autofocus on title input after adding
   titleInputRef.current?.focus();
+
+  // Scroll to bottom after a brief delay to ensure item is rendered
+  setTimeout(() => {
+    if (cardsContainerRef.current) {
+      cardsContainerRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, 100);
 };
 
   const items = finishedList.filter((item) => item.type === type);
@@ -67,6 +75,7 @@ const handleDragEnd = (event: DragEndEvent) => {
           type="text"
           placeholder={`Add new ${type} title`}
           value={title}
+          maxLength={90}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -78,6 +87,7 @@ const handleDragEnd = (event: DragEndEvent) => {
           type="text"
           placeholder="Description (optional)"
           value={description}
+          maxLength={90}
           onChange={(e) => setDescription(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -91,7 +101,7 @@ const handleDragEnd = (event: DragEndEvent) => {
       {/* Drag-and-drop cards */}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-          <div className="cards-container">
+          <div ref={cardsContainerRef} className="cards-container">
             {items.map((item) => (
               <Card key={item.id} item={item} />
             ))}
