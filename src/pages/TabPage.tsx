@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import type { Item } from "../types";
 import Card from "../components/Card";
 import { useFinishedList } from "../context/FinishedListContext";
 import {
