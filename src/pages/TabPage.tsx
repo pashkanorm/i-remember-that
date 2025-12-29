@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import Card from "../components/Card";
 import { useFinishedList } from "../context/FinishedListContext";
 import {
@@ -22,6 +22,7 @@ const TabPage: React.FC<TabPageProps> = ({ type }) => {
   const { finishedList, addItem, reorderItems } = useFinishedList();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -36,6 +37,9 @@ const handleAdd = async () => {
 
   setTitle("");
   setDescription("");
+  
+  // Autofocus on title input after adding
+  titleInputRef.current?.focus();
 };
 
   const items = finishedList.filter((item) => item.type === type);
@@ -59,16 +63,27 @@ const handleDragEnd = (event: DragEndEvent) => {
       {/* Input form */}
       <div className="add-form">
         <input
+          ref={titleInputRef}
           type="text"
           placeholder={`Add new ${type} title`}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleAdd();
+            }
+          }}
         />
         <input
           type="text"
           placeholder="Description (optional)"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleAdd();
+            }
+          }}
         />
         <button onClick={handleAdd}>Add</button>
       </div>

@@ -9,6 +9,7 @@ interface FinishedListContextType {
   finishedList: Item[];
   addItem: (item: Omit<Item, "id">) => Promise<void>;
   removeItem: (id: string) => Promise<void>;
+  updateItem: (id: string, updates: Partial<Item>) => Promise<void>;
   reorderItems: (oldIndex: number, newIndex: number, type: Item["type"]) => void;
 }
 
@@ -88,13 +89,19 @@ export const FinishedListProvider = ({ children }: { children: ReactNode }) => {
 
   const addItem = async (item: Omit<Item, "id">) => {
     if (user) {
+      // determine next order for this type
+      const sameType = finishedList.filter((i) => i.type === item.type);
+      const maxOrder = sameType.reduce((max, it) => Math.max(max, it.order ?? -1), -1);
+      const nextOrder = maxOrder + 1;
+
+      const insertPayload = { ...item, user_id: user.id, order: nextOrder };
       const { data } = await supabase
         .from("items")
-        .insert([{ ...item, user_id: user.id }])
+        .insert([insertPayload])
         .select()
         .single();
 
-      setFinishedList((prev) => [...prev, data]);
+      setFinishedList((prev) => [...prev, data as Item]);
     } else {
       const newItem = { ...item, id: crypto.randomUUID() };
       const updated = [...finishedList, newItem];
@@ -110,6 +117,27 @@ export const FinishedListProvider = ({ children }: { children: ReactNode }) => {
     setFinishedList(updated);
 
     if (!user) localStorage.setItem("finishedList", JSON.stringify(updated));
+  };
+
+  const updateItem = async (id: string, updates: Partial<Item>) => {
+    if (user) {
+      try {
+        const { data } = await supabase
+          .from("items")
+          .update(updates)
+          .eq("id", id)
+          .select()
+          .single();
+
+        setFinishedList((prev) => prev.map((it) => (it.id === id ? (data as Item) : it)));
+      } catch (err) {
+        console.error("[FinishedListContext] updateItem error:", err);
+      }
+    } else {
+      const updated = finishedList.map((it) => (it.id === id ? { ...it, ...updates } : it));
+      setFinishedList(updated);
+      localStorage.setItem("finishedList", JSON.stringify(updated));
+    }
   };
 
   const reorderItems = (oldIndex: number, newIndex: number, type: Item["type"]) => {
@@ -149,7 +177,7 @@ export const FinishedListProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <FinishedListContext.Provider value={{ finishedList, addItem, removeItem, reorderItems }}>
+    <FinishedListContext.Provider value={{ finishedList, addItem, removeItem, updateItem, reorderItems }}>
       {children}
     </FinishedListContext.Provider>
   );

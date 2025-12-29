@@ -51,6 +51,10 @@ body {
   gap: 10px;
   margin: 20px 0;
   padding-left: 20px;
+  position: sticky;
+  top: 0;
+  background-color: #121212;
+  z-index: 100;
 }
 
 .add-form input {
@@ -101,9 +105,42 @@ body {
   font-size: 18px;
 }
 
+.card-title {
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.card-title:hover {
+  color: #90caf9;
+}
+
+.edit-input {
+  background: #222;
+  color: #fff;
+  border: 1px solid #444;
+  padding: 4px 8px;
+  border-radius: 4px;
+  outline: none;
+}
+
+.save-btn {
+  background-color: #28a745 !important;
+  border: none;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.save-btn:hover {
+  background-color: #1e7e34 !important;
+}
+
 .card p {
   margin: 0;
   font-size: 14px;
+  font-style: italic;
 }
 
 .card button {
